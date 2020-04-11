@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 
 import asyncio
+import datetime
 import io
 import sys
+import time
 
 import discord
 
@@ -97,9 +99,36 @@ class Client(discord.Client):
         db_bin = await self._db.dump()
         await self.get_channel(cfg.CHANNEL_ID).send(file=discord.File(io.BytesIO(db_bin), 'db.sqlite3'))
 
+    async def background_task(self):
+        while True:
+            async with self._lock:
+                await self._background_work()
+            await asyncio.sleep(60)
+
+    async def _background_work(self):
+        now_ts = time.time()
+        last_ts = await self._db.get_last_maintenance_time()
+        if last_ts == 0:
+            await self._db.set_last_maintenance_time(now_ts)
+            return
+
+        now_day = (datetime.datetime.fromtimestamp(now_ts).weekday() + 1) % 7
+        last_day = (datetime.datetime.fromtimestamp(last_ts).weekday() + 1) % 7
+        if now_day == 0 and last_day != 0:
+            await self._rollover()
+
+        await self._db.set_last_maintenance_time(now_ts)
+
+    async def _rollover(self):
+        await self._db.close()
+        await self.get_channel(cfg.CHANNEL_ID).send('Rolling over database for new week')
+        await self._dump()
+        await self._db._connect()
+
 def main(argv):
     db = stalnks.Db(cfg.DB)
     client = Client(db)
+    client.loop.create_task(client.background_task())
     client.run(cfg.TOKEN)
     return 0
 

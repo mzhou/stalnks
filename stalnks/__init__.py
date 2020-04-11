@@ -84,8 +84,13 @@ class Db(object):
 
     def _connect(self):
         self._con = sqlite3.connect(self._fname)
-        self._con.execute('create table if not exists reports (user number, day number, day_part number, price number, constraint pk primary key (user, day, day_part))')
-        self._con.execute('create table if not exists maintenance (last_check_ts number)')
+        with self._con as cur:
+            cur.execute('create table if not exists reports (user number, day number, day_part number, price number, constraint pk primary key (user, day, day_part))')
+            cur.execute('create table if not exists maintenance (last_check_ts number)')
+            for row in cur.execute('select last_check_ts from maintenance'):
+                break
+            else:
+                cur.execute('insert into maintenance values(0)')
 
     async def close(self):
         async with self._lock:
@@ -100,13 +105,16 @@ class Db(object):
             return self._dump()
 
     def _dump(self):
-        self._close()
+        was_open = self._con is not None
+        if was_open:
+            self._close()
         try:
             with open(self._fname, 'rb') as f:
                 contents = f.read()
             return contents
         finally:
-            self._connect()
+            if was_open:
+                self._connect()
 
     async def submit_report(self, user, report, replace):
         async with self._lock:
@@ -133,6 +141,22 @@ class Db(object):
     def _get_user_reports(self, user):
         with self._con as cur:
             return [Report(*x) for x in cur.execute('select day, day_part, price from reports where user = ?', (user, ))]
+
+    async def get_last_maintenance_time(self):
+        async with self._lock:
+            return self._get_last_maintenance_time()
+
+    def _get_last_maintenance_time(self):
+        for row in self._con.execute('select last_check_ts from maintenance'):
+            return row[0]
+
+    async def set_last_maintenance_time(self, ts):
+        async with self._lock:
+            return self._set_last_maintenance_time(ts)
+
+    def _set_last_maintenance_time(self, ts):
+        with self._con as cur:
+            cur.execute('update maintenance set last_check_ts = ?', (ts, ))
 
 #
 # System
