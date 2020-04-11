@@ -100,6 +100,7 @@ class Client(discord.Client):
         await self.get_channel(cfg.CHANNEL_ID).send(file=discord.File(io.BytesIO(db_bin), 'db.sqlite3'))
 
     async def background_task(self):
+        await self.wait_until_ready()
         while True:
             async with self._lock:
                 await self._background_work()
@@ -123,7 +124,8 @@ class Client(discord.Client):
         await self._db.close()
         await self.get_channel(cfg.CHANNEL_ID).send('Rolling over database for new week')
         await self._dump()
-        await self._db._connect()
+        await self._db.truncate()
+        await self._db.connect()
 
 def main(argv):
     db = stalnks.Db(cfg.DB)

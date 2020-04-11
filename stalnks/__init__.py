@@ -79,7 +79,7 @@ class Db(object):
         self._connect()
 
     async def connect(self):
-        async with self._locks:
+        async with self._lock:
             self._connect()
 
     def _connect(self):
@@ -112,6 +112,21 @@ class Db(object):
             with open(self._fname, 'rb') as f:
                 contents = f.read()
             return contents
+        finally:
+            if was_open:
+                self._connect()
+
+    async def truncate(self):
+        async with self._lock:
+            return self._truncate()
+
+    def _truncate(self):
+        was_open = self._con is not None
+        if was_open:
+            self._close()
+        try:
+            with open(self._fname, 'wb'):
+                pass
         finally:
             if was_open:
                 self._connect()
