@@ -30,6 +30,11 @@ class Client(discord.Client):
         if message.author == self.user:
             return
 
+        # dump
+        if message.content == 'dump':
+            await self._dump()
+            return
+
         print(repr(message))
         print(repr(message.content))
         # <Message id=698391425347485717 channel=<TextChannel id=698387890102861915 name='bot-sandbox' position=6 nsfw=False news=False category_id=692322326796042311> type=<MessageType.default: 0> author=<Member id=129173256417574912 name='mz' discriminator='5687' bot=False nick=None guild=<Guild id=692322326796042310 name='animal crossing circlejerk' shard_id=None chunked=True member_count=16>> flags=<MessageFlags value=0>>
@@ -87,6 +92,10 @@ class Client(discord.Client):
         png = stalnks.run_prediction(cfg.PAGE_URL, prices)
         await message.channel.send(file=discord.File(io.BytesIO(png), 'prediction.png'))
         await message.channel.send('https://turnipprophet.io/?prices=' + prices)
+
+    async def _dump(self):
+        db_bin = await self._db.dump()
+        await self.get_channel(cfg.CHANNEL_ID).send(file=discord.File(io.BytesIO(db_bin), 'db.sqlite3'))
 
 def main(argv):
     db = stalnks.Db(cfg.DB)

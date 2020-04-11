@@ -102,7 +102,7 @@ class Db(object):
     def _dump(self):
         self._close()
         try:
-            with open(fname, 'rb') as f:
+            with open(self._fname, 'rb') as f:
                 contents = f.read()
             return contents
         finally:
