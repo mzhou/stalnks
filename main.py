@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import asyncio
+import io
 import sys
 
 import discord
@@ -11,11 +13,16 @@ class Client(discord.Client):
     def __init__(self, db):
         super().__init__()
         self._db = db
+        self._lock = asyncio.Lock()
 
     async def on_ready(self):
         print('Logged on as', self.user)
 
     async def on_message(self, message):
+        async with self._lock:
+            return await self._on_message(message)
+
+    async def _on_message(self, message):
         # only care about channel
         if message.channel.id != cfg.CHANNEL_ID:
             return
@@ -71,6 +78,15 @@ class Client(discord.Client):
             await message.channel.send('Recorded {price} bells at {day} {day_part}'.format(**report.pretty()._asdict()))
         elif replace:
             await message.channel.send('{day} {day_part} updated from {old_price} to {price}'.format(**report.pretty()._asdict(), old_price=old.price))
+        else:
+            return
+
+        # do the table
+        user_reports = await self._db.get_user_reports(message.author.id)
+        prices = stalnks.reports_to_prices(user_reports)
+        png = stalnks.run_prediction(cfg.PAGE_URL, prices)
+        await message.channel.send(file=discord.File(io.BytesIO(png), 'prediction.png'))
+        await message.channel.send('https://turnipprophet.io/?prices=' + prices)
 
 def main(argv):
     db = stalnks.Db(cfg.DB)

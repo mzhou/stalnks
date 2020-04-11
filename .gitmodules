@@ -1,0 +1,3 @@
+[submodule "ac-nh-turnip-prices"]
+	path = ac-nh-turnip-prices
+	url = git://github.com/mikebryant/ac-nh-turnip-prices.git

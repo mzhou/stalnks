@@ -1,9 +1,15 @@
 import asyncio
 import calendar
 import collections
+import contextlib
 import datetime
+import os
 import re
 import sqlite3
+import tempfile
+
+import selenium
+import selenium.webdriver
 
 #
 # Reports
@@ -126,7 +132,7 @@ class Db(object):
 
     def _get_user_reports(self, user):
         with self._con as cur:
-            return [lambda x: Report(*x) for x in cur.execute('select day, day_part, price from reports where user = ?', (user, ))]
+            return [Report(*x) for x in cur.execute('select day, day_part, price from reports where user = ?', (user, ))]
 
 #
 # System
@@ -141,4 +147,30 @@ def current_day_part():
     now = datetime.datetime.now()
     day_part = int(now.hour >= 12)
     return day_part
+
+#
+# Browser
+#
+
+def reports_to_prices(reports):
+    prices = [0] * 13
+    for report in reports:
+        index = 0 if report.day == 0 else report.day * 2 + report.day_part - 1
+        prices[index] = report.price
+    return '.'.join(map(str, prices))
+
+def run_prediction(url, prices):
+    driver = selenium.webdriver.Chrome()
+    driver.set_window_size(1920, 5760)
+    driver.implicitly_wait(10)
+    try:
+        driver.get(url + '?prices=' + prices)
+        element = driver.find_element_by_class_name('nook-phone')
+        with contextlib.closing(tempfile.NamedTemporaryFile(suffix='.png')) as tmp:
+            element.screenshot(tmp.name)
+            with open(tmp.name, 'rb') as f:
+                content = f.read()
+        return content
+    finally:
+        driver.quit()
 
