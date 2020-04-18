@@ -14,6 +14,8 @@ Sending the exact message "dump" will cause the bot to upload a copy of it's dat
 
 ## Installation
 
+Python 3.7 or later required.
+
 Make sure the git submodule stuff is all in order. The `ac-nh-turnip-prices` directory should exist and not be empty.
 
 ```
@@ -22,7 +24,7 @@ python3 -m venv ../venv_stalnks
 pip install -r requirements.txt
 ```
 
-Install `xvfb` and `chromium` from your distro package manager.
+Install `chromium` from your distro package manager.
 
 Install the relevant version of `chromedriver` from <https://sites.google.com/a/chromium.org/chromedriver/downloads>.
 
@@ -38,7 +40,7 @@ Copy and visit the generated URL and follow the instructions to grant the bot pe
 
 In Discord, right click the channel you want the bot to operate in and copy ID. Fill that in as `CHANNEL_ID` in `cfg.py`.
 
-Also in `cfg.py`, replace the `...` in `PAGE_URL` with the absolute path to where you checked out this repo.
+Also in `cfg.py`, replace the `...` in `WEBROOT` with the absolute path to where you checked out this repo.
 
 You can customise `DB` location, but the default should be fine.
 
@@ -46,7 +48,7 @@ You can customise `DB` location, but the default should be fine.
 
 ```
 . ../venv_stalnks/bin/activate
-./main.sh
+./main.py
 ```
 
 ## Architecture

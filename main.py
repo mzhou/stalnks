@@ -91,7 +91,7 @@ class Client(discord.Client):
         # do the table
         user_reports = await self._db.get_user_reports(message.author.id)
         prices = stalnks.reports_to_prices(user_reports)
-        png = stalnks.run_prediction(cfg.PAGE_URL, prices)
+        png = stalnks.run_prediction(cfg.WEBROOT, prices)
         await message.channel.send(file=discord.File(io.BytesIO(png), 'prediction.png'))
         await message.channel.send('https://turnipprophet.io/?prices=' + prices)
 

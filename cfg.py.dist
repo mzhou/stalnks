@@ -1,4 +1,4 @@
 TOKEN = ''
 CHANNEL_ID = 0
 DB = 'db.sqlite3'
-PAGE_URL = 'file:///.../ac-nh-turnip-prices/index.html'
+WEBROOT = '/.../ac-nh-turnip-prices/index.html'

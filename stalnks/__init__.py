@@ -3,10 +3,14 @@ import calendar
 import collections
 import contextlib
 import datetime
+import functools
+import http
 import os
 import re
+import socketserver
 import sqlite3
 import tempfile
+import threading
 
 import selenium
 import selenium.webdriver
@@ -198,18 +202,26 @@ def reports_to_prices(reports):
         prices[index] = report.price
     return '.'.join(map(str, prices))
 
-def run_prediction(url, prices):
-    driver = selenium.webdriver.Chrome()
-    driver.set_window_size(1920, 5760)
-    driver.implicitly_wait(10)
-    try:
-        driver.get(url + '?prices=' + prices)
-        element = driver.find_element_by_class_name('nook-phone')
-        with contextlib.closing(tempfile.NamedTemporaryFile(suffix='.png')) as tmp:
-            element.screenshot(tmp.name)
-            with open(tmp.name, 'rb') as f:
-                content = f.read()
-        return content
-    finally:
-        driver.quit()
+def run_prediction(webroot, prices):
+    with socketserver.TCPServer(('127.0.0.1', 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=webroot)) as server:
+        port = server.server_address[1]
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        chrome_options = selenium.webdriver.ChromeOptions()
+        chrome_options.add_argument('--headless')
+        driver = selenium.webdriver.Chrome(chrome_options=chrome_options)
+        driver.set_window_size(1920, 5760)
+        driver.implicitly_wait(10)
+        try:
+            driver.get('http://127.0.0.1:{}/index.html?prices={}'.format(port, prices))
+            element = driver.find_element_by_class_name('nook-phone')
+            with contextlib.closing(tempfile.NamedTemporaryFile(suffix='.png')) as tmp:
+                element.screenshot(tmp.name)
+                with open(tmp.name, 'rb') as f:
+                    content = f.read()
+            return content
+        finally:
+            driver.quit()
+            server.shutdown()
+            thread.join()
 
