@@ -11,6 +11,7 @@ import socketserver
 import sqlite3
 import tempfile
 import threading
+import time
 
 import selenium
 import selenium.webdriver
@@ -202,7 +203,7 @@ def reports_to_prices(reports):
         prices[index] = report.price
     return '.'.join(map(str, prices))
 
-def run_prediction(webroot, prices):
+async def run_prediction(webroot, prices):
     with socketserver.TCPServer(('127.0.0.1', 0), functools.partial(http.server.SimpleHTTPRequestHandler, directory=webroot)) as server:
         port = server.server_address[1]
         thread = threading.Thread(target=server.serve_forever)
@@ -214,6 +215,8 @@ def run_prediction(webroot, prices):
         driver.implicitly_wait(10)
         try:
             driver.get('http://127.0.0.1:{}/index.html?prices={}'.format(port, prices))
+            await asyncio.sleep(2)
+            time.sleep(2)
             element = driver.find_element_by_class_name('nook-phone')
             with contextlib.closing(tempfile.NamedTemporaryFile(suffix='.png')) as tmp:
                 element.screenshot(tmp.name)

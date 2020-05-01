@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import asyncio
+import collections
 import datetime
 import io
 import sys
@@ -16,6 +17,7 @@ class Client(discord.Client):
         super().__init__()
         self._db = db
         self._lock = asyncio.Lock()
+        self._predict_tasks = asyncio.Queue()
 
     async def on_ready(self):
         print('Logged on as', self.user)
@@ -82,18 +84,25 @@ class Client(discord.Client):
         print('submit_report({})'.format(report))
         old = await self._db.submit_report(message.author.id, report, replace=replace)
         if old is None:
-            await message.channel.send('Recorded {price} bells at {day} {day_part}'.format(**report.pretty()._asdict()))
+            first_line = message.channel.send('Recorded {price} bells at {day} {day_part}'.format(**report.pretty()._asdict()))
         elif replace:
-            await message.channel.send('{day} {day_part} updated from {old_price} to {price}'.format(**report.pretty()._asdict(), old_price=old.price))
+            first_line = message.channel.send('{day} {day_part} updated from {old_price} to {price}'.format(**report.pretty()._asdict(), old_price=old.price))
         else:
             return
 
         # do the table
         user_reports = await self._db.get_user_reports(message.author.id)
         prices = stalnks.reports_to_prices(user_reports)
-        png = stalnks.run_prediction(cfg.WEBROOT, prices)
-        await message.channel.send(file=discord.File(io.BytesIO(png), 'prediction.png'))
-        await message.channel.send('https://turnipprophet.io/?prices=' + prices)
+
+        # run the web page in background
+        async def predict():
+            return await stalnks.run_prediction(cfg.WEBROOT, prices)
+        # function to run in order of requested prediction
+        async def reply(png):
+            await first_line
+            await message.channel.send(file=discord.File(io.BytesIO(png), 'prediction.png'))
+            await message.channel.send('https://turnipprophet.io/?prices=' + prices)
+        await self._predict_tasks.put((self.loop.create_task(predict()), reply))
 
     async def _dump(self):
         db_bin = await self._db.dump()
@@ -120,6 +129,14 @@ class Client(discord.Client):
 
         await self._db.set_last_maintenance_time(now_ts)
 
+    async def predict_replier(self):
+        await self.wait_until_ready()
+        while True:
+            task, reply = await self._predict_tasks.get()
+            png = await task
+            async with self._lock:
+                await reply(png)
+
     async def _rollover(self):
         await self._db.close()
         await self.get_channel(cfg.CHANNEL_ID).send('Rolling over database for new week')
@@ -131,6 +148,7 @@ def main(argv):
     db = stalnks.Db(cfg.DB)
     client = Client(db)
     client.loop.create_task(client.background_task())
+    client.loop.create_task(client.predict_replier())
     client.run(cfg.TOKEN)
     return 0
 
